@@ -8,67 +8,100 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <style>
-        body { margin: 0; background: #f2f2f7; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; height: 100vh; align-items: center; justify-content: center; overflow: hidden; }
+        /* 全局基础设置 */
+        body { 
+            margin: 0; 
+            background: #f2f2f7; 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            overflow: hidden; /* 防止整个页面滚动 */
+        }
         
-        /* 容器外层，控制整体位置 */
-        #container { width: 85%; max-width: 400px; display: flex; flex-direction: column; align-items: center; }
-
+        /* 1. 白色文字框容器 */
         #box { 
             background: white; 
+            margin-top: 10vh; /* 距离顶部留一点距离 */
             padding: 30px; 
-            border-radius: 20px; 
-            width: 100%; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
+            border-radius: 25px; 
+            width: 85%; 
+            max-width: 450px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.06); 
             
-            /* 设定高度：占屏幕 60%，超出则滚动 */
+            /* 高度计算：屏幕高度 - 顶部间距 - 底部按钮区域间距 */
             height: 60vh; 
             overflow-y: auto; 
-            /* iOS 顺滑滚动 */
             -webkit-overflow-scrolling: touch; 
 
-            /* 内部文字样式 */
             font-size: 1.15rem; 
-            line-height: 1.7; 
+            line-height: 1.8; 
             color: #333; 
             white-space: pre-wrap; 
             word-break: break-word;
             transition: opacity 0.2s ease;
             box-sizing: border-box;
+            position: relative;
         }
 
-        /* 隐藏滚动条，但保持滚动功能，让界面更干净 */
+        /* 隐藏滚动条 */
         #box::-webkit-scrollbar { width: 0; background: transparent; }
 
+        /* 2. 底部按钮固定区域 */
+        .footer {
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 20vh; /* 预留底部 20% 的高度给按钮 */
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            pointer-events: none; /* 穿透点击，不干扰背景 */
+        }
+
         button { 
-            margin-top: 30px; 
+            pointer-events: auto; /* 恢复按钮点击 */
             border: none; 
             background: #007aff; 
             color: white; 
-            padding: 15px 45px; 
-            border-radius: 25px; 
+            padding: 16px 50px; 
+            border-radius: 30px; 
             font-weight: bold; 
+            font-size: 1.1rem;
             cursor: pointer; 
-            box-shadow: 0 4px 12px rgba(0,122,255,0.3);
+            box-shadow: 0 8px 20px rgba(0,122,255,0.3);
             -webkit-tap-highlight-color: transparent; 
+            transition: transform 0.1s;
         }
-        button:active { transform: scale(0.92); opacity: 0.8; }
-        #debug-info { position: fixed; bottom: 10px; font-size: 9px; color: #ccc; letter-spacing: 1px; }
+        
+        button:active { transform: scale(0.92); opacity: 0.9; }
+
+        #debug-info { 
+            position: fixed; 
+            bottom: 10px; 
+            font-size: 9px; 
+            color: #ccc; 
+            letter-spacing: 1px; 
+        }
     </style>
 </head>
 <body>
 
-    <div id="container">
-        <div id="box">正在连接能量站...</div>
+    <div id="box">初始化中...</div>
+
+    <div class="footer">
         <button onclick="draw()">刷一个</button>
     </div>
 
-    <div id="debug-info">SYSTEM v3.5 | SCROLLABLE</div>
+    <div id="debug-info">SYSTEM v4.0 | FIXED BUTTON</div>
 
     <script>
         let data = [];
         const box = document.getElementById('box');
 
-        // 彻底注销可能存在的旧 Service Worker 缓存
+        // 强力清除旧缓存
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(rs => {
                 for(let r of rs) r.unregister();
@@ -77,20 +110,21 @@
 
         async function init() {
             try {
+                // 自动识别路径并添加随机参数防缓存
                 const path = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
-                const jsonUrl = `${path}data.json?nocache=${Date.now()}`;
+                const jsonUrl = `${path}data.json?t=${Date.now()}`;
                 
                 const response = await fetch(jsonUrl, { cache: "no-store" });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
-                const json = await response.json();
-                if (Array.isArray(json)) {
-                    data = json;
-                    if (data.length > 0) draw();
-                    else box.innerText = "quotes 文件夹内没有找到有效的 .md 文件。";
+                data = await response.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    draw();
+                } else {
+                    box.innerText = "数据池为空，请检查 quotes 文件夹。";
                 }
             } catch (err) {
-                box.innerHTML = `<span style="color:#ff3b30;font-weight:bold">加载失败</span><br><small style="color:#888">${err.message}</small>`;
+                box.innerHTML = `<span style="color:#ff3b30">连接失败</span><br><small>${err.message}</small>`;
             }
         }
 
@@ -99,13 +133,8 @@
             box.style.opacity = 0;
             setTimeout(() => {
                 const randomIndex = Math.floor(Math.random() * data.length);
-                
-                // 写入文字
                 box.innerText = data[randomIndex];
-                
-                // 关键：切换文章时，滚动条自动回到顶部
-                box.scrollTop = 0;
-                
+                box.scrollTop = 0; // 切换后回到顶部
                 box.style.opacity = 1;
             }, 200);
         }
