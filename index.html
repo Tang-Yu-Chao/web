@@ -9,25 +9,38 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <style>
         body { margin: 0; background: #f2f2f7; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; height: 100vh; align-items: center; justify-content: center; overflow: hidden; }
+        
+        /* 容器外层，控制整体位置 */
+        #container { width: 85%; max-width: 400px; display: flex; flex-direction: column; align-items: center; }
+
         #box { 
             background: white; 
             padding: 30px; 
             border-radius: 20px; 
-            width: 85%; 
-            max-width: 400px; 
+            width: 100%; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
-            min-height: 200px; 
-            display: flex; 
-            align-items: center; 
+            
+            /* 设定高度：占屏幕 60%，超出则滚动 */
+            height: 60vh; 
+            overflow-y: auto; 
+            /* iOS 顺滑滚动 */
+            -webkit-overflow-scrolling: touch; 
+
+            /* 内部文字样式 */
             font-size: 1.15rem; 
             line-height: 1.7; 
             color: #333; 
-            white-space: pre-wrap; /* 关键：保留换行 */
+            white-space: pre-wrap; 
             word-break: break-word;
             transition: opacity 0.2s ease;
+            box-sizing: border-box;
         }
+
+        /* 隐藏滚动条，但保持滚动功能，让界面更干净 */
+        #box::-webkit-scrollbar { width: 0; background: transparent; }
+
         button { 
-            margin-top: 40px; 
+            margin-top: 30px; 
             border: none; 
             background: #007aff; 
             color: white; 
@@ -43,49 +56,41 @@
     </style>
 </head>
 <body>
-    <div id="box">正在连接能量站...</div>
-    <button onclick="draw()">刷一个</button>
-    <div id="debug-info">SYSTEM v3.0 | NO-CACHE MODE</div>
+
+    <div id="container">
+        <div id="box">正在连接能量站...</div>
+        <button onclick="draw()">刷一个</button>
+    </div>
+
+    <div id="debug-info">SYSTEM v3.5 | SCROLLABLE</div>
 
     <script>
         let data = [];
         const box = document.getElementById('box');
 
-        // 彻底清理旧 Service Worker 的“核武器”
+        // 彻底注销可能存在的旧 Service Worker 缓存
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
-                for (let registration of registrations) {
-                    registration.unregister();
-                    console.log('已强制注销旧 SW');
-                }
+            navigator.serviceWorker.getRegistrations().then(rs => {
+                for(let r of rs) r.unregister();
             });
         }
 
         async function init() {
             try {
-                // 自动识别 GitHub Pages 目录层级
                 const path = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
                 const jsonUrl = `${path}data.json?nocache=${Date.now()}`;
                 
-                const response = await fetch(jsonUrl, { 
-                    cache: "no-store",
-                    headers: { 'Cache-Control': 'no-cache' }
-                });
-                
+                const response = await fetch(jsonUrl, { cache: "no-store" });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
                 const json = await response.json();
-                if (!Array.isArray(json)) throw new Error('数据非数组格式');
-
-                data = json;
-                if (data.length === 0) {
-                    box.innerText = "数据池为空，请检查 quotes 文件夹。";
-                } else {
-                    draw();
+                if (Array.isArray(json)) {
+                    data = json;
+                    if (data.length > 0) draw();
+                    else box.innerText = "quotes 文件夹内没有找到有效的 .md 文件。";
                 }
             } catch (err) {
-                box.innerHTML = `<span style="color:#ff3b30;font-weight:bold">通信中断</span><br><small style="color:#888">${err.message}</small>`;
-                console.error(err);
+                box.innerHTML = `<span style="color:#ff3b30;font-weight:bold">加载失败</span><br><small style="color:#888">${err.message}</small>`;
             }
         }
 
@@ -94,8 +99,13 @@
             box.style.opacity = 0;
             setTimeout(() => {
                 const randomIndex = Math.floor(Math.random() * data.length);
-                // 使用 innerText 配合 CSS pre-wrap 解决奇怪的排版问题
+                
+                // 写入文字
                 box.innerText = data[randomIndex];
+                
+                // 关键：切换文章时，滚动条自动回到顶部
+                box.scrollTop = 0;
+                
                 box.style.opacity = 1;
             }, 200);
         }
