@@ -21,7 +21,7 @@
             font-size: 1.2rem; 
             line-height: 1.6; 
             color: #333; 
-            white-space: pre-wrap; /* 保持 Markdown 的换行格式 */
+            white-space: pre-wrap; 
             transition: opacity 0.3s ease;
         }
         button { 
@@ -37,38 +37,54 @@
             -webkit-tap-highlight-color: transparent; 
         }
         button:active { transform: scale(0.95); opacity: 0.9; }
+        #debug-info { position: fixed; bottom: 10px; font-size: 10px; color: #999; }
     </style>
 </head>
 <body>
-    <div id="box">加载中...</div>
+    <div id="box">初始化中...</div>
     <button onclick="draw()">刷一个</button>
+    <div id="debug-info">Ver: 2.0</div>
 
     <script>
         let data = [];
         const box = document.getElementById('box');
 
-        // 核心修改：加上时间戳 ?v=... 强制绕过 GitHub Pages 和 Service Worker 缓存
-        fetch('./data.json?v=' + Date.now())
-            .then(response => {
-                if (!response.ok) throw new Error('无法读取数据文件 (404)');
-                return response.json();
-            })
-            .then(d => {
+        async function init() {
+            try {
+                // 构建一个绝对路径，并加上时间戳彻底粉碎缓存
+                const baseUrl = window.location.href.split('?')[0].split('#')[0];
+                const jsonUrl = (baseUrl.endsWith('/') ? baseUrl : baseUrl + '/') + 'data.json?t=' + Date.now();
+                
+                console.log('正在请求:', jsonUrl);
+                
+                const response = await fetch(jsonUrl, { cache: "no-store" });
+                
+                if (!response.ok) {
+                    throw new Error(`网络请求失败 (状态码: ${response.status})`);
+                }
+                
+                const d = await response.json();
+                
+                if (!Array.isArray(d)) {
+                    throw new Error('数据格式不正确，应为数组');
+                }
+
                 data = d;
+                
                 if (data.length === 0) {
-                    box.innerText = "数据池是空的，请检查 quotes 文件夹是否有 .md 文件。";
+                    box.innerText = "数据池是空的，请检查 quotes 文件夹。";
                 } else {
                     draw();
                 }
-            })
-            .catch(err => {
-                box.innerText = "出错了: " + err.message + "\n请尝试刷新页面。";
-                console.error(err);
-            });
+            } catch (err) {
+                box.innerHTML = `<span style="color:red">加载失败</span><br><small>${err.message}</small><br><button onclick="location.reload()" style="margin-top:10px;padding:5px 10px;font-size:12px">重试</button>`;
+                console.error('详细错误信息:', err);
+            }
+        }
 
         function draw() {
             if (data.length) {
-                box.style.opacity = 0; // 切换动画
+                box.style.opacity = 0;
                 setTimeout(() => {
                     const randomIndex = Math.floor(Math.random() * data.length);
                     box.innerText = data[randomIndex];
@@ -77,10 +93,17 @@
             }
         }
 
-        // 注册 Service Worker
+        // 启动加载
+        init();
+
+        /* 临时注释掉 Service Worker 注册代码，
+           等 Safari 缓存彻底清理干净后再取消注释 
+        */
+        /*
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW 注册失败', err));
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error', err));
         }
+        */
     </script>
 </body>
 </html>
