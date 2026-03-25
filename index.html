@@ -1,6 +1,5 @@
 //抓取 (Fetch) 文件 data.json，将 JSON 字符串还原成一个数组，点击“刷一个”时程序运行 Math.random()随机产生一个索引数字X，
 //最后通过 document.getElementById('box').innerText = data[X] 把文字塞进网页那个白色的方块里。
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -9,8 +8,9 @@
     <title>能量站</title>
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <style>
-        body { margin: 0; background: #f2f2f7; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; height: 100vh; align-items: center; justify-content: center; }
+        body { margin: 0; background: #f2f2f7; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; height: 100vh; align-items: center; justify-content: center; overflow: hidden; }
         #box { 
             background: white; 
             padding: 30px; 
@@ -21,92 +21,88 @@
             min-height: 200px; 
             display: flex; 
             align-items: center; 
-            font-size: 1.2rem; 
-            line-height: 1.6; 
+            font-size: 1.15rem; 
+            line-height: 1.7; 
             color: #333; 
-            white-space: pre-wrap; 
-            transition: opacity 0.3s ease;
+            white-space: pre-wrap; /* 关键：保留换行 */
+            word-break: break-word;
+            transition: opacity 0.2s ease;
         }
         button { 
             margin-top: 40px; 
             border: none; 
             background: #007aff; 
             color: white; 
-            padding: 15px 40px; 
+            padding: 15px 45px; 
             border-radius: 25px; 
             font-weight: bold; 
             cursor: pointer; 
-            box-shadow: 0 4px 10px rgba(0,122,255,0.3);
+            box-shadow: 0 4px 12px rgba(0,122,255,0.3);
             -webkit-tap-highlight-color: transparent; 
         }
-        button:active { transform: scale(0.95); opacity: 0.9; }
-        #debug-info { position: fixed; bottom: 10px; font-size: 10px; color: #999; }
+        button:active { transform: scale(0.92); opacity: 0.8; }
+        #debug-info { position: fixed; bottom: 10px; font-size: 9px; color: #ccc; letter-spacing: 1px; }
     </style>
 </head>
 <body>
-    <div id="box">初始化中...</div>
+    <div id="box">正在连接能量站...</div>
     <button onclick="draw()">刷一个</button>
-    <div id="debug-info">Ver: 2.0</div>
+    <div id="debug-info">SYSTEM v3.0 | NO-CACHE MODE</div>
 
     <script>
         let data = [];
         const box = document.getElementById('box');
 
+        // 彻底清理旧 Service Worker 的“核武器”
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                for (let registration of registrations) {
+                    registration.unregister();
+                    console.log('已强制注销旧 SW');
+                }
+            });
+        }
+
         async function init() {
             try {
-                // 构建一个绝对路径，并加上时间戳彻底粉碎缓存
-                const baseUrl = window.location.href.split('?')[0].split('#')[0];
-                const jsonUrl = (baseUrl.endsWith('/') ? baseUrl : baseUrl + '/') + 'data.json?t=' + Date.now();
+                // 自动识别 GitHub Pages 目录层级
+                const path = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+                const jsonUrl = `${path}data.json?nocache=${Date.now()}`;
                 
-                console.log('正在请求:', jsonUrl);
+                const response = await fetch(jsonUrl, { 
+                    cache: "no-store",
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
                 
-                const response = await fetch(jsonUrl, { cache: "no-store" });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
-                if (!response.ok) {
-                    throw new Error(`网络请求失败 (状态码: ${response.status})`);
-                }
-                
-                const d = await response.json();
-                
-                if (!Array.isArray(d)) {
-                    throw new Error('数据格式不正确，应为数组');
-                }
+                const json = await response.json();
+                if (!Array.isArray(json)) throw new Error('数据非数组格式');
 
-                data = d;
-                
+                data = json;
                 if (data.length === 0) {
-                    box.innerText = "数据池是空的，请检查 quotes 文件夹。";
+                    box.innerText = "数据池为空，请检查 quotes 文件夹。";
                 } else {
                     draw();
                 }
             } catch (err) {
-                box.innerHTML = `<span style="color:red">加载失败</span><br><small>${err.message}</small><br><button onclick="location.reload()" style="margin-top:10px;padding:5px 10px;font-size:12px">重试</button>`;
-                console.error('详细错误信息:', err);
+                box.innerHTML = `<span style="color:#ff3b30;font-weight:bold">通信中断</span><br><small style="color:#888">${err.message}</small>`;
+                console.error(err);
             }
         }
 
         function draw() {
-            if (data.length) {
-                box.style.opacity = 0;
-                setTimeout(() => {
-                    const randomIndex = Math.floor(Math.random() * data.length);
-                    box.innerText = data[randomIndex];
-                    box.style.opacity = 1;
-                }, 200);
-            }
+            if (data.length === 0) return;
+            box.style.opacity = 0;
+            setTimeout(() => {
+                const randomIndex = Math.floor(Math.random() * data.length);
+                // 使用 innerText 配合 CSS pre-wrap 解决奇怪的排版问题
+                box.innerText = data[randomIndex];
+                box.style.opacity = 1;
+            }, 200);
         }
 
-        // 启动加载
         init();
-
-        /* 临时注释掉 Service Worker 注册代码，
-           等 Safari 缓存彻底清理干净后再取消注释 
-        */
-        /*
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error', err));
-        }
-        */
     </script>
 </body>
 </html>
