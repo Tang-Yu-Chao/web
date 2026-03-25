@@ -10,4 +10,5 @@ def build():
     with open('data.json', 'w', encoding='utf-8') as f:
         json.dump(qs, f, ensure_ascii=False)
 if __name__ == "__main__":
+    #位于仓库根目录，自动把所有 .md 变成网页能读的列表。
     build()
