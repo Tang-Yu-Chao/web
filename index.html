@@ -50,25 +50,32 @@
         <button onclick="draw()">刷一个</button>
     </div>
 
-    <div id="debug-info">SYSTEM v5.0 | PWA ACTIVE</div>
+    <div id="debug-info">SYSTEM v5.1 | PWA FIXED</div>
 
     <script>
         let data = [];
         const box = document.getElementById('box');
 
-        // 核心：注册 Service Worker 管家
+        // 注册 Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('能量站管家已就绪'))
+                    .then(reg => console.log('能量站管家就绪'))
                     .catch(err => console.log('管家入职失败', err));
             });
         }
 
         async function init() {
             try {
-                const path = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
-                const jsonUrl = `${path}data.json?t=${Date.now()}`;
+                // 优化后的路径获取逻辑：确保在 PWA 模式下也能准确定位根目录
+                const getFullUrl = (fileName) => {
+                    const l = window.location;
+                    const path = l.pathname.substring(0, l.pathname.lastIndexOf('/') + 1);
+                    return l.origin + path + fileName + '?t=' + Date.now();
+                };
+
+                const jsonUrl = getFullUrl('data.json');
+                console.log("请求地址:", jsonUrl);
                 
                 const response = await fetch(jsonUrl, { cache: "no-store" });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -80,7 +87,8 @@
                     box.innerText = "数据池为空，请检查 quotes 文件夹。";
                 }
             } catch (err) {
-                box.innerHTML = `<span style="color:#ff3b30">连接失败</span><br><small>${err.message}</small>`;
+                // 如果是 404，会在屏幕上清晰显示
+                box.innerHTML = `<span style="color:#ff3b30">连接失败</span><br><small>错误详情: ${err.message}</small><br><br><small style="color:#999">请尝试删除桌面图标并重新添加</small>`;
             }
         }
 
