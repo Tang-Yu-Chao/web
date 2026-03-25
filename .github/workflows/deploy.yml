@@ -2,8 +2,9 @@ name: Deploy
 on:
   push:
     branches: [ main ]
+    paths: [ 'quotes/**', 'build.py' ] # 只有句子或脚本变了才触发
 permissions:
-  contents: read
+  contents: write    # 必须开启写入权限
   pages: write
   id-token: write
 jobs:
@@ -11,8 +12,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python build.py
-      - uses: actions/upload-pages-artifact@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Run Build Script
+        run: python build.py
+
+      - name: Commit and Push data.json
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git commit -m "自动更新数据文件" || echo "没有内容变化"
+          git push
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-      - uses: actions/deploy-pages@v4
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
