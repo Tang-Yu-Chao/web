@@ -15,25 +15,33 @@
             align-items: center; overflow: hidden; 
         }
         #box { 
-            background: white; margin-top: 10vh; padding: 30px; 
-            border-radius: 25px; width: 85%; max-width: 450px; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.06); 
-            height: 60vh; overflow-y: auto; 
+            background: white; 
+            margin-top: 8vh; /* 稍微调高一点点 */
+            padding: 25px; /* 稍微缩小内边距，给文字更多空间 */
+            border-radius: 20px; 
+            
+            /* --- 核心修改：宽度优化 --- */
+            width: 94%;      /* 距离两边极近，保留 3% 的安全边距 */
+            max-width: 600px; /* 在平板上允许展示得更宽 */
+            
+            height: 62vh; 
+            overflow-y: auto; 
             -webkit-overflow-scrolling: touch; 
-            font-size: 1.15rem; line-height: 1.8; color: #333; 
+            font-size: 1.2rem; /* 框大了，字也可以稍微大一点点 */
+            line-height: 1.8; color: #333; 
             white-space: pre-wrap; word-break: break-word;
             transition: opacity 0.2s ease; box-sizing: border-box;
         }
         #box::-webkit-scrollbar { width: 0; background: transparent; }
         .footer {
             position: fixed; bottom: 0; left: 0; width: 100%; 
-            height: 20vh; display: flex; justify-content: center; 
+            height: 18vh; display: flex; justify-content: center; 
             align-items: center; pointer-events: none;
         }
         button { 
             pointer-events: auto; border: none; background: #007aff; 
-            color: white; padding: 16px 50px; border-radius: 30px; 
-            font-weight: bold; font-size: 1.1rem; cursor: pointer; 
+            color: white; padding: 16px 60px; border-radius: 35px; 
+            font-weight: bold; font-size: 1.15rem; cursor: pointer; 
             box-shadow: 0 8px 20px rgba(0,122,255,0.3);
             -webkit-tap-highlight-color: transparent; 
             transition: transform 0.1s;
@@ -50,13 +58,12 @@
         <button onclick="draw()">刷一个</button>
     </div>
 
-    <div id="debug-info">SYSTEM v5.1 | PWA FIXED</div>
+    <div id="debug-info">SYSTEM v5.2 | WIDE MODE</div>
 
     <script>
         let data = [];
         const box = document.getElementById('box');
 
-        // 注册 Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
@@ -67,7 +74,6 @@
 
         async function init() {
             try {
-                // 优化后的路径获取逻辑：确保在 PWA 模式下也能准确定位根目录
                 const getFullUrl = (fileName) => {
                     const l = window.location;
                     const path = l.pathname.substring(0, l.pathname.lastIndexOf('/') + 1);
@@ -75,8 +81,6 @@
                 };
 
                 const jsonUrl = getFullUrl('data.json');
-                console.log("请求地址:", jsonUrl);
-                
                 const response = await fetch(jsonUrl, { cache: "no-store" });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
@@ -87,8 +91,7 @@
                     box.innerText = "数据池为空，请检查 quotes 文件夹。";
                 }
             } catch (err) {
-                // 如果是 404，会在屏幕上清晰显示
-                box.innerHTML = `<span style="color:#ff3b30">连接失败</span><br><small>错误详情: ${err.message}</small><br><br><small style="color:#999">请尝试删除桌面图标并重新添加</small>`;
+                box.innerHTML = `<span style="color:#ff3b30">连接失败</span><br><small>错误详情: ${err.message}</small>`;
             }
         }
 
