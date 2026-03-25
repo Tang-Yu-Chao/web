@@ -8,10 +8,13 @@ def build():
     qs = []
     path = "quotes"
     if os.path.exists(path):
-        for f in os.listdir(path):
+        for f in sorted(os.listdir(path)):
             if f.endswith(".md"):
                 with open(os.path.join(path, f), 'r', encoding='utf-8') as file:
-                    qs.append(file.read().strip())
+                    content = file.read().strip()
+                    # 如果你希望按空行拆分文章（每个段落变一条记录）
+                    paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
+                    qs.extend(paragraphs) 
     with open('data.json', 'w', encoding='utf-8') as f:
         json.dump(qs, f, ensure_ascii=False)
 if __name__ == "__main__":
